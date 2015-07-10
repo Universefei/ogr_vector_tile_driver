@@ -1,0 +1,16 @@
+{
+    "name": "water",
+    "geometry_column": "geom",
+    "geometry_type": "multipolygon",
+    "srid": 4326,
+    "coord_dimension": "2",
+    "bbox": [],
+    "fields": [
+        {   "name": "depth",
+            "type": "double",
+            "length": 20,
+            "precision": 10 },
+        {   "name": "type",
+            "type": "string" }
+    ]
+}
