@@ -1,22 +1,39 @@
+/******************************************************************************
+ *
+ * Project:  HashTable implementation 
+ * Purpose:  to ignore repeated FID in vector tiles
+ * Author:   Fei Lunzhou
+ *
+ ******************************************************************************/
+
 #include "hashtable.h"
 #include <iostream>
 #include "cpl_conv.h"
 
 using namespace std;
 
+/******************************************************************************
+ *                                List
+ *****************************************************************************/
+
 typedef struct _ListNode {
     int             key;
     _ListNode*      poNext;
 } ListNode;
 
+
 int ListPreInsert(ListNode*& poH, int key)
 {
     ListNode* poNew = (ListNode*)malloc(sizeof(ListNode));
-    poNew->key = key;
-    poNew->poNext = poH;
-    poH = poNew;
+    if(poNew)
+    {
+        poNew->key = key;
+        poNew->poNext = poH;
+        poH = poNew;
+    }
     return 0;
 };
+
 
 int ListFind(ListNode* poH, int key)
 {
@@ -29,6 +46,7 @@ int ListFind(ListNode* poH, int key)
     return 0;
 };
 
+
 int ListDestroy(ListNode*& poH)
 {
     ListNode* tmp = NULL;
@@ -40,6 +58,7 @@ int ListDestroy(ListNode*& poH)
     }
     return 1;
 };
+
 
 int ListRemove(ListNode*& poH, int key)
 {
@@ -74,6 +93,7 @@ int ListRemove(ListNode*& poH, int key)
     return flag;
 };
 
+
 static const int anPrimes[] =  
 { 53, 97, 193, 389, 769, 1543, 3079, 6151,
   12289, 24593, 49157, 98317, 196613, 393241,
@@ -81,10 +101,15 @@ static const int anPrimes[] =
   25165843, 50331653, 100663319, 201326611, 
   402653189, 805306457, 1610612741 };
 
+
 int fnDefaultHash(int key)
 {
     return key;
 }
+
+/******************************************************************************
+ *                                HashTable
+ *****************************************************************************/
 
 HashTable::HashTable():
     iPrimeIndex_(0),
@@ -93,11 +118,31 @@ HashTable::HashTable():
 {
     nSlot_ =  anPrimes[iPrimeIndex_];
     papoHash_ = (ListNode**)malloc(sizeof(ListNode*) * nSlot_);
+    if(papoHash_) memset(papoHash_, 0, nSlot_);
 }
+
+HashTable::HashTable(HashFunc fn):
+    iPrimeIndex_(0),
+    nNode_(0),
+    fnHash_(fn)
+{
+    nSlot_ =  anPrimes[iPrimeIndex_];
+    papoHash_ = (ListNode**)malloc(sizeof(ListNode*) * nSlot_);
+    if(papoHash_) memset(papoHash_, 0, nSlot_);
+}
+
+/* --------------------------------------------------------------------- */
+/*                              ~HashTable()                             */
+/* --------------------------------------------------------------------- */
 
 HashTable::~HashTable()
 {
+    clear();
 }
+
+/* --------------------------------------------------------------------- */
+/*                                 has()                                 */
+/* --------------------------------------------------------------------- */
 
 int HashTable::has(int key) const
 {
@@ -105,6 +150,10 @@ int HashTable::has(int key) const
     int isFound = ListFind(papoHash_[hashValue], key);
     return isFound;
 };
+
+/* --------------------------------------------------------------------- */
+/*                                 insert()                              */
+/* --------------------------------------------------------------------- */
 
 int HashTable::insert(int key)
 {
@@ -114,6 +163,10 @@ int HashTable::insert(int key)
     ListPreInsert(papoHash_[hashValue], key);
     return 1;
 }
+
+/* --------------------------------------------------------------------- */
+/*                                 remove()                              */
+/* --------------------------------------------------------------------- */
 
 int HashTable::remove(int key)
 {
@@ -144,6 +197,10 @@ int HashTable::remove(int key)
     return existFlag;
 }
 
+/* --------------------------------------------------------------------- */
+/*                                 rehash()                              */
+/* --------------------------------------------------------------------- */
+
 int HashTable::rehash() 
 {
     int nextIndex = iPrimeIndex_ + 1;
@@ -170,15 +227,24 @@ int HashTable::rehash()
     return 1;
 }
 
+/* --------------------------------------------------------------------- */
+/*                                 init()                                */
+/* --------------------------------------------------------------------- */
+
 int HashTable::init(int nSlot)
 {
     if(papoHash_ && nSlot_) clear();
     for(iPrimeIndex_=0; nSlot>=anPrimes[iPrimeIndex_]; ++iPrimeIndex_);
     nSlot_ = anPrimes[iPrimeIndex_];
     papoHash_ = (HashBucket**)malloc(sizeof(HashBucket*) * nSlot_);
-    memset(papoHash_, 0, nSlot_);
+    if(papoHash_) memset(papoHash_, 0, nSlot_);
+
     return 1;
 }
+
+/* --------------------------------------------------------------------- */
+/*                                 clear()                               */
+/* --------------------------------------------------------------------- */
 
 int HashTable::clear()
 {

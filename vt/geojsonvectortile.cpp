@@ -3,7 +3,7 @@
  *
  * Project:  OpenGIS Simple Features Reference Implementation
  * Purpose:  Implements OGRVTDriver class.
- * Author:   Frank Warmerdam, warmerdam@pobox.com
+ * Author:   Fei Lunzhou
  *
  ******************************************************************************/
 
@@ -34,7 +34,7 @@ GeoJSONVectorTile::~GeoJSONVectorTile()
 /*                           deSerialize()                              */
 /************************************************************************/
 
-int GeoJSONVectorTile::deSerialize( char* pRowdata)
+int GeoJSONVectorTile::deSerialize( unsigned char* pRowdata)
 {
     return 0;
 }
