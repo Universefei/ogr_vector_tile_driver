@@ -5,7 +5,7 @@
 /*                             TileID()                                  */
 /* --------------------------------------------------------------------- */
 
-TileID::TileID(char* pszLayerName, int x, int y, int z):
+TileID::TileID(const char* pszLayerName, int x, int y, int z):
     x_(x), y_(y), z_(z)
 {
     pszLayerName_ = (char*)malloc(strlen(pszLayerName) + 1);

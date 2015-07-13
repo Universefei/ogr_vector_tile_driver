@@ -6,8 +6,8 @@
 /*                          VectorTile()                                 */
 /* --------------------------------------------------------------------- */
 
-VectorTile::VectorTile(OGRVTLayer* poLayer):
-    poTileID_(NULL),
+VectorTile::VectorTile(OGRVTLayer* poLayer, TileID* poTileID):
+    poTileID_( poTileID ? ( new TileID(*poTileID) ) : NULL ),
     poLayer_(poLayer),
     poFeatures_(NULL),
     poFeatureCompatibleFlags_(NULL),
@@ -22,7 +22,7 @@ VectorTile::VectorTile(OGRVTLayer* poLayer):
 /*                          copy constructor                             */
 /* --------------------------------------------------------------------- */
 
-VectorTile::VectorTile(const OGRVTLayer& ref)
+VectorTile::VectorTile(const VectorTile& ref)
 {
     *poTileID_ = *(ref.getTileID());
     poLayer_ = ref.getLayer();
@@ -46,7 +46,7 @@ VectorTile::VectorTile(const OGRVTLayer& ref)
 /*                          operator =                                   */
 /* --------------------------------------------------------------------- */
 
-const VectorTile& operator= (const OGRVTLayer& ref)
+const VectorTile& operator= (const VectorTile& ref)
 {
     clearTile();
     poLayer_ = NULL;
@@ -77,7 +77,6 @@ const VectorTile& operator= (const OGRVTLayer& ref)
 VectorTile::~VectorTile()
 {
     clearTile();
-    poLayer_ = NULL;
 }
 
 /* --------------------------------------------------------------------- */
@@ -201,14 +200,39 @@ int VectorTile::deSerialize(char* buf)
 /*                             fetchTile()                               */
 /* --------------------------------------------------------------------- */
 
-int VectorTile::fetchTile(CPLString tilekey)
+int VectorTile::fetchTile(TileID* poTileID)
 {
     clearTile();
-    poTileID_->setFromString(tileKey);
-    if( deSerialize(poLayer_->getValue(poTileID_->toString())) )
+    poTileID_ = new TileID(*poTileID);
+
+    CPLString key(poTileID_->toString());
+    unsigned char* poRowData = poLayer_->GetKVStore()->getValue(key);
+
+    if(deSerialize(poRowData))
     {
+        free(poRowData);
+        performFilting();
         return 0;
     }
+    free(poRowData);
+    return 1;
+}
+
+int VectorTile::fetchTile(const char* pszLayerName, int x, int y, int z=0)
+{
+
+    clearTile();
+    poTileID_ = new TileID(pszLayerName, x, y, z);
+
+    CPLString key(poTileID_->toString());
+    unsigned char* poRowData = poLayer_->GetKVStore()->getValue(key);
+    if(deSerialize(poRowData))
+    {
+        free(poRowData);
+        performFilting();
+        return 0;
+    }
+    free(poRowData);
     return 1;
 }
 
@@ -227,6 +251,30 @@ int VectorTile::deleteIncompatibleFeatures()
 }
 
 /* --------------------------------------------------------------------- */
+/*                              performFilting()                         */
+/* --------------------------------------------------------------------- */
+
+/**
+ * if no error return 0, else return 1
+ */
+
+int VectorTile::performFiltring(int bFilteGeom, int bFilteAttr)
+{
+    int fidFiltingFlag = filteFID();
+    int geomFiltingFlag = 1;
+    int attrFiltingFlag = 1;
+
+    if(bFilteGeom)
+        geomFiltingFlag = filteGeometry();
+    if(bFilteAttr)
+        attrFiltingFlag = filteAttributes();
+
+    return  !((!fidFiltingFlag) && 
+              (bFilteGeom ? (!geomFiltingFlag) : 1) && 
+              (bFilteAttr ? (!attrFiltingFlag) : 1) );
+}
+
+/* --------------------------------------------------------------------- */
 /*                              filteFID()                               */
 /* --------------------------------------------------------------------- */
 
@@ -235,7 +283,7 @@ int VectorTile::filteFID()
     for(int i=0; i<nFeature; ++i)
     {
         if(poFeatureCompatibleFlags_[i] && poFeatures_[i] && 
-                poLayer_->getHash()->hasKey( poFeatures_[i]->GetFid()) )
+                poLayer_->GetHash()->hasKey( poFeatures_[i]->GetFid()) )
         {
             poFeatureCompatibleFlags_[i] = 0;
             nCompatibleFeature_--;
@@ -254,7 +302,7 @@ int VectorTile::filteGeometry()
     {
         if(poFeatureCompatibleFlags_[i] && poFeatures_[i] && 
                 /* TODO: add geometry filtering judgement */
-                poLayer_->getHash()->hasKey( poFeatures_[i]->GetFid()) )
+                poLayer_->GetHash()->hasKey( poFeatures_[i]->GetFid()) )
         {
             poFeatureCompatibleFlags_[i] = 0;
             nCompatibleFeature_--;
@@ -273,3 +321,17 @@ int VectorTile::filteAttributes()
     return 0;
 }
 
+/* --------------------------------------------------------------------- */
+/*                              commitToLayer()                          */
+/* --------------------------------------------------------------------- */
+
+int VectorTile::commitToLayer()
+{
+    /* copy feature into layer */
+    for(int i=0; i<nFeatures_; ++i)
+    {
+        if( poFeatureCompatibleFlags_[i] && poFeatures_[i] )
+            poLayer_->CreateFeature(poFeature[i]); /* deep copy */
+    }
+    return 0;
+}

@@ -5,28 +5,7 @@
  * Purpose:  Private definitions within the OGR Vector Tile driver.
  * Author:   Fei Lunzhou, feilunzhou@126.com
  *
- ******************************************************************************
- * Copyright (c) 2003, Frank Warmerdam <warmerdam@pobox.com>
- * Copyright (c) 2011-2013, Even Rouault <even dot rouault at mines-paris dot org>
- *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included
- * in all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
- * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- ****************************************************************************/
+ ******************************************************************************/
 
 #ifndef _OGRMEM_H_INCLUDED
 #define _OGRMEM_H_INCLUDED
@@ -41,9 +20,11 @@
 class TileID
 {
 public:
-            TileID(char* pszLayerName, int x, int y, int z=0);
+            TileID(const char* pszLayerName, int x, int y, int z=0);
             TileID(CPLString cplString);
             ~TileID();
+    TileID& TileID(const TileID& cpy); /* TODO */
+    TileID& operator= (const TileID& cpy); /* TODO */
 
     int     x_;
     int     y_;
@@ -58,6 +39,7 @@ public:
 class VectorTile 
 {
     TileID*             poTileID_;
+    /* const OGRVTLayer*   poLayer_; */
     OGRVTLayer*         poLayer_;
 
     OGRFeature**        poFeatures_; 
@@ -71,7 +53,7 @@ class VectorTile
     int                 bOriginal_; 
 
 public:
-                        VectorTile(OGRVTLayer* poLayer);
+                        VectorTile(OGRVTLayer* poLayer, TileID* poTileID = NULL);
                         VectorTile(const VectorTile& ref_copy_constructor);
     virtual             ~VectorTile();
     const VectorTile&   operator= (const VectorTile& assign_constructor);
@@ -86,22 +68,32 @@ public:
     virtual OGRFeature*         getNextFeature();
     virtual void                resetReading();
 
-    virtual int         fetchTile(CPLString tilekey);
-    virtual int         clearTile(); /* fei: purge all tile data */
-    virtual int         deleteIncompatibleFeatures(); /* fei: delete all filter out features */
+    virtual int         fetchTile(TileID* poTileID); /* XXX:call deSerialize */
+    virtual int         fetchTile(const char* pszLayerName, 
+                                    int x, int y, int z=0); /* XXX:call deSerialize */
 
-    virtual int         filteFID();
+    virtual int         clearTile(); /* XXX: purge all tile data */
+
+
+    virtual int         commitToLayer(); /* XXX:commit all compatible feature into poLayer */
+    virtual int         deSerialize(char*) = 0; /* XXX: deserialize buff into features */
+
+protected:
+    int                 performFilting(int bFilteGeom=0, int bFilteAttr=0); /* XXX: template method pattern */
+    virtual int         filteFID(); /* XXX */
     virtual int         filteGeometry();
     virtual int         filteAttributes();
 
-private:
-    virtual int         deSerialize(char*) = 0; /* deserialize buff into features */
+    virtual int         deleteIncompatibleFeatures(); /* fei: delete all filter out features */
 }
 
 
 class GeoJSONVectorTile : public VectorTile
 {
 public:
+                        ~GeoJSONVectorTile(OGRVTLayer* poLayer);
+
+    virtual int         commitToLayer(); /* commit all compatible feature into poLayer */
     virtual int         deSerialize(char*);
 }
 
@@ -115,7 +107,7 @@ class KVStore
 public:
     virtual const char* getName() = 0 const;
     virtual int         open(CPLString connInfo) = 0;
-    virtual char*       getValue(CPLString strKey) = 0 ;
+    virtual unsigned char* getValue(CPLString strKey) = 0 ;
 }
 
 
@@ -194,9 +186,13 @@ class OGRVTLayer : public OGRLayer
     int                 bHasHoles;
 
 
+/* --------------------------------------------------------------------- */
+/*                          Added properties                             */
+/* --------------------------------------------------------------------- */
   private: /* by fei */
 
-    VectorTile**        poTiles;
+    /* XXX: VT caches should put into datasource or layer? */
+    VectorTile**        poTiles; /*  */
     int                 nTiles;
 
     CPLHashSet          *poHash; /* fei: hashSet to findout duplicated fid */
@@ -209,9 +205,21 @@ class OGRVTLayer : public OGRLayer
 
     /* fei: fetch all feature into layer according to filter */
     void                PerformFilter();  /* fei */
-    CPLHashSet          getHash(); /* fei */
+    CPLHashSet          GetHash(); /* fei */
+
+    typedef vector<TileID*> TileIDSet;
+    vector<TileID*>     GetIntersectTiles(double minx, double miny, 
+                                        double maxx, double maxy, int srid);
+
+    /* XXX: get all data into papofeatures */
+    int                 GetTile(const char* layerName, int x, int y, int z=0); 
+    int                 GetTile(TileID*);
+
+    KVStore*            GetKVStore(); /* needed by class VectorTile */
 
 
+
+/*---------------------------------------------------------------------------*/
   public:
                         OGRVTLayer( const char * pszName,
                                      OGRSpatialReference *poSRS,
@@ -247,8 +255,6 @@ class OGRVTLayer : public OGRLayer
 
     int                 GetNextReadFID() { return iNextReadFID; }
 
-  private:
-    int                 GetIntersectTiles(OGRGeometry *poGeom, char** poKeys);
 };
 
 /************************************************************************/
@@ -261,15 +267,16 @@ class OGRVTDataSource : public OGRDataSource
     int                 nLayers;
     
     char                *pszName;
+    KVStore             *poKV; /* fei: refer to mysql/sqlite/pg driver */
 
 
   public:
-    KVStore             *poKV; /* fei: refer to mysql/sqlite/pg driver */
 
                         OGRVTDataSource( const char *, char ** );
                         ~OGRVTDataSource();
 
     int                 Open( const char *, int bUpdate, int bTestOpen ); /* fei */
+    const KVStore*      GetKVStore(); /* fei */
 
     const char          *GetName() { return pszName; }
     int                 GetLayerCount() { return nLayers; }

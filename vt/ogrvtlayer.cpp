@@ -94,6 +94,7 @@ OGRVTLayer::~OGRVTLayer()
 /************************************************************************/
 
 /**
+ * Get from Wang Meixin
  *
  * @param (i/o/b)
  * @param (i/o/b)
@@ -102,7 +103,8 @@ OGRVTLayer::~OGRVTLayer()
  * @return 
  */
 
-int OGRVTLayer::GetIntersectTiles(OGRGeometry *poGeom, char** poKeys)
+vector<TileID*> OGRVTLayer::GetIntersectTiles(double minx, double miny, 
+                                 double max, double maxy, int srid)
 {
     
 }
@@ -135,26 +137,59 @@ void OGRVTLayer::PerformFilter()
 
     if(bFilterModified)
     {
-        char** papszTileKeys = NULL; /* buffers */
-        int nTiles = GetIntersectTiles(OGRGeometry *poGeom, papszTileKeys);
+        TileIDSet   tileIds;
+        TileIDSet::iterator itTiles;
+        tileIds = GetIntersectTiles(OGRGeometry *poGeom, papszTileKeys);
 
-        VectorTile* poVT = new GeoJSONVectorTile();
-        poVT->setGeometryFilter();
-        poVT->setAttributeFiter();
+        VectorTile* poVT = new GeoJSONVectorTile(this);
 
-        for(int i=0; i<nTiles; i++)
+        for(int itTiles=tileIds::begin(); itTiles!=tileIds::end(); itTiles++)
         {
-            poVT->getTile(poDS->poKV, papszTileKeys[i]);
-            OGRFeature* poFeature = poVT->getNextFeature();
-            while(poFeature)
-            {
-                this->CreateFeature(poFeature);
-            }
-            poVT->Release(); /* fei: release tile occupied resource */
+            /* fetch and do filtering */
+            poVT->fetchTile( itTiles );
+            filterFID();
+
+            poVT->commitToLayer();
+            /* copy feature into layer */
+            /* OGRFeature* poFeature = poVT->getFirstFeature(); */
+            /* while(poFeature) */
+            /* { */
+            /*     this->CreateFeature(poFeature); */
+            /*     OGRFeature::DestroyFeature(poFeature); */
+            /*     poFeature = poVT->getNextFeature(); */
+            /* } */
+
+            /* purge used data */
+            poVT->clearTile(); /* fei: release tile occupied resource */
         }
     }
 
     bFilterModified = 0;
+}
+
+/************************************************************************/
+/*                              GetTile()                               */
+/************************************************************************/
+
+int OGRVTLayer::GetTile(const char* layerName, int x, int y, int z)
+
+{
+    TileID tmpTile(layerName, x, y, z);
+    return GetTile(&tmpTile);
+}
+
+int OGRVTLayer::GetTile(TileID* poTileID)
+
+{
+    /* TODO: check if error occured, may connection failed */
+
+    VectorTile* poVTile = new VectorTile(this);
+    poVTile->fetchTile(&tmpTile);
+    poVTile->commitToLayer();
+
+    delete PoVTile; /* TODO; may add to Vecter cache */
+
+    return 0;
 }
 
 /************************************************************************/
