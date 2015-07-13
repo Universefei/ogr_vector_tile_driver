@@ -17,7 +17,7 @@
 /************************************************************************/
 
 GeoJSONVectorTile::GeoJSONVectorTile(OGRVTLayer* poLayer):
-    VectorTile(poLayer):
+    VectorTile(poLayer)
 {
 }
 
@@ -34,8 +34,8 @@ GeoJSONVectorTile::~GeoJSONVectorTile()
 /*                           deSerialize()                              */
 /************************************************************************/
 
-int GeoJSONVectorTile::deSerialize( char* pdata)
+int GeoJSONVectorTile::deSerialize( char* pRowdata)
 {
-
+    return 0;
 }
 

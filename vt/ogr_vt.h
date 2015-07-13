@@ -11,38 +11,50 @@
 #define _OGRMEM_H_INCLUDED
 
 #include "ogrsf_frmts.h"
+#include "hashtable.h"
+
+#include <vector>
+using namespace std;
+
+class OGRVTLayer;
+class OGRVTDataSource;
+
+/* unsigned long myHashfn(const void*); */
+/* int myEqualFn(const void* left, const void* right); */
+/* void myFreeElementFn(void* ptr); */
 
 
 /************************************************************************/
 /*                              VectorTile                              */
 /************************************************************************/
-
 class TileID
 {
+
 public:
-            TileID(const char* pszLayerName, int x, int y, int z=0);
-            TileID(CPLString cplString);
-            ~TileID();
-    TileID& TileID(const TileID& cpy); /* TODO */
-    TileID& operator= (const TileID& cpy); /* TODO */
+                TileID(const char* pszLayerName, int x, int y, int z=0);
+                TileID(const TileID& cpy); /* TODO */
+                TileID(CPLString cplString);
+                ~TileID();
+    TileID&     operator= (const TileID& duplica); /* TODO */
 
-    int     x_;
-    int     y_;
-    int     z_;
-    char*   pszLayerName_;
+    int         x_;
+    int         y_;
+    int         z_;
+    char*       pszLayerName_;
 
-    char*   toString();
-    int     setFromString(CPLString);
-}
+    int         setLayerName(const char* pszLayerName);
+    const char* toString() const;
+    int         setFromString(CPLString);
+};
 
 
 class VectorTile 
 {
     TileID*             poTileID_;
-    /* const OGRVTLayer*   poLayer_; */
-    OGRVTLayer*         poLayer_;
+    mutable OGRVTLayer*   poLayer_;
+    /* OGRVTLayer*         poLayer_; */
 
-    OGRFeature**        poFeatures_; 
+    OGRFeature**        papoFeatures_; 
     int                 *poFeatureCompatibleFlags_;
 
     int                 nFeature_; /* allocated feature count */
@@ -56,17 +68,17 @@ public:
                         VectorTile(OGRVTLayer* poLayer, TileID* poTileID = NULL);
                         VectorTile(const VectorTile& ref_copy_constructor);
     virtual             ~VectorTile();
-    const VectorTile&   operator= (const VectorTile& assign_constructor);
+    VectorTile&         operator= (const VectorTile& assign_constructor);
     /* VectorTile*         clone(); */
 
     const TileID*       getTileID() const;
-    const OGRVTLayer*   getLayer() const;
+    OGRVTLayer*         getLayer() const;
     int                 isOriginalTile() const;
     virtual int         getFeatureCount() const;
 
-    virtual OGRFeature*         getFirstFeature();
-    virtual OGRFeature*         getNextFeature();
-    virtual void                resetReading();
+    virtual OGRFeature* getFirstFeature();
+    virtual OGRFeature* getNextFeature();
+    virtual void        resetReading();
 
     virtual int         fetchTile(TileID* poTileID); /* XXX:call deSerialize */
     virtual int         fetchTile(const char* pszLayerName, 
@@ -74,28 +86,28 @@ public:
 
     virtual int         clearTile(); /* XXX: purge all tile data */
 
-
-    virtual int         commitToLayer(); /* XXX:commit all compatible feature into poLayer */
-    virtual int         deSerialize(char*) = 0; /* XXX: deserialize buff into features */
+    virtual int         commitToLayer() const; /* XXX:commit all compatible feature into poLayer */
+    virtual int         deSerialize(unsigned char*) = 0; /* XXX: deserialize buff into features */
+    int                 performFilting(int bFilteGeom=0, int bFilteAttr=0); /* XXX: template method pattern */
 
 protected:
-    int                 performFilting(int bFilteGeom=0, int bFilteAttr=0); /* XXX: template method pattern */
+
     virtual int         filteFID(); /* XXX */
     virtual int         filteGeometry();
     virtual int         filteAttributes();
 
     virtual int         deleteIncompatibleFeatures(); /* fei: delete all filter out features */
-}
+};
 
 
 class GeoJSONVectorTile : public VectorTile
 {
 public:
-                        ~GeoJSONVectorTile(OGRVTLayer* poLayer);
+                        GeoJSONVectorTile(OGRVTLayer* poLayer);
+                        ~GeoJSONVectorTile();
 
-    virtual int         commitToLayer(); /* commit all compatible feature into poLayer */
-    virtual int         deSerialize(char*);
-}
+    virtual int         deSerialize(unsigned char*);
+};
 
 
 /************************************************************************/
@@ -105,10 +117,10 @@ public:
 class KVStore
 {
 public:
-    virtual const char* getName() = 0 const;
+    virtual const char* getName() const = 0;
     virtual int         open(CPLString connInfo) = 0;
-    virtual unsigned char* getValue(CPLString strKey) = 0 ;
-}
+    virtual unsigned char* getValue(CPLString strKey) const = 0 ;
+};
 
 
 class FileKV : public KVStore
@@ -117,7 +129,7 @@ class FileKV : public KVStore
 public:
                         FileKV();
                         FileKV(CPLString rootPaht);
-                        FileKV(const FileKV& copy_constructor);
+                        FileKV(const FileKV& cpy);
                         ~FileKV();
 
     const FileKV&       operator= (const FileKV& assignment);
@@ -125,7 +137,7 @@ public:
     virtual int         open(CPLString openinfo);
     virtual unsigned char*       getValue(CPLString strKey);
 
-}
+};
 
 
 class RedisKV : public KVStore
@@ -134,12 +146,11 @@ class RedisKV : public KVStore
 public:
                         RedisKV();
                         RedisKV(CPLString connInfo);
-                        RedisKV();
 
     const char*         getName();
     virtual int         open(CPLString connInfo);
     virtual unsigned char*       getValue(CPLString strKey);
-}
+};
 
 
 class KVStoreFactory
@@ -154,7 +165,8 @@ public:
 private:
                         KVStoreFactory();
     KVStore*            createKVStore(CPLString name);
-}
+
+};
 
 
 /**
@@ -189,13 +201,14 @@ class OGRVTLayer : public OGRLayer
 /* --------------------------------------------------------------------- */
 /*                          Added properties                             */
 /* --------------------------------------------------------------------- */
+
   private: /* by fei */
 
     /* XXX: VT caches should put into datasource or layer? */
     VectorTile**        poTiles; /*  */
     int                 nTiles;
 
-    CPLHashSet          *poHash; /* fei: hashSet to findout duplicated fid */
+    HashTable           *poHash; /* fei: hashSet to findout duplicated fid */
     OGRVTDataSource     *poDS; /* fei */
 
     int                 bFilterModified; /* fei */
@@ -205,21 +218,21 @@ class OGRVTLayer : public OGRLayer
 
     /* fei: fetch all feature into layer according to filter */
     void                PerformFilter();  /* fei */
-    CPLHashSet          GetHash(); /* fei */
+    CPLHashSet*         GetHash() const; /* fei */
 
     typedef vector<TileID*> TileIDSet;
     vector<TileID*>     GetIntersectTiles(double minx, double miny, 
                                         double maxx, double maxy, int srid);
+    vector<TileID*>     GetIntersectTiles(OGRGeometry* poGeom);
 
-    /* XXX: get all data into papofeatures */
-    int                 GetTile(const char* layerName, int x, int y, int z=0); 
+    /* XXX: get all data into papoFeatures */
+    int                 GetTile(int x, int y, int z=0); 
     int                 GetTile(TileID*);
 
-    KVStore*            GetKVStore(); /* needed by class VectorTile */
-
-
+    const KVStore*      GetKVStore() const ; /* needed by class VectorTile */
 
 /*---------------------------------------------------------------------------*/
+
   public:
                         OGRVTLayer( const char * pszName,
                                      OGRSpatialReference *poSRS,

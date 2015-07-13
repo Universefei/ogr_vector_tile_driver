@@ -46,19 +46,21 @@ VectorTile::VectorTile(const VectorTile& ref)
 /*                          operator =                                   */
 /* --------------------------------------------------------------------- */
 
-const VectorTile& operator= (const VectorTile& ref)
+VectorTile& VectorTile::operator= (const VectorTile& ref)
 {
+
+    if(this == &ref) return *this; /* effective c++ item 11 */
+
     clearTile();
-    poLayer_ = NULL;
 
     *poTileID_ = *(ref.getTileID());
     poLayer_ = ref.getLayer();
 
     int nFeature = ref.getFeatureCount();
-    poFeatures_ = (OGRFeature**) malloc(sizeof(OGRFeature*)nFeature);
+    papoFeatures_ = (OGRFeature**) malloc(sizeof(OGRFeature*)nFeature);
     poFeatureCompatibleFlags_ = (int*) malloc(sizeof(int) * nFeature);
 
-    poFeatures_[0] = ref.getFirstFeature()->Clone();
+    papoFeatures_[0] = ref.getFirstFeature()->Clone();
     for(int i = 1; i<nFeature; ++i)
     {
         poFeatures_[i] = ref.getNextFeature()->Clone();
@@ -67,6 +69,7 @@ const VectorTile& operator= (const VectorTile& ref)
     nFeature_ = nCompatibleFeature_ = nFeature;
     nIterator = 0;
     bOriginal_ = ref.isOriginalTile();
+
     return *this;
 }
 
@@ -93,13 +96,13 @@ int VectorTile::clearTile()
 
     for(int i=0; i<nFeature_; ++i)
     {
-        if(poFeatures_[i])
+        if(papoFeatures_[i])
         {
-            free( poFeatures_[i] );
-            poFeatures_[i] = NULL;
+            free( papoFeatures_[i] );
+            papoFeatures_[i] = NULL;
         }
     }
-    free( poFeatures_ );
+    free( papoFeatures_ );
     free( poFeatureCompatibleFlags_ );
 
     nFeature_ = 0;
@@ -114,7 +117,7 @@ int VectorTile::clearTile()
 /*                              getTileID()                              */
 /* --------------------------------------------------------------------- */
 
-const TileID* VectorTile::getTileID()
+const TileID* VectorTile::getTileID() const
 {
     return poTileID_;
 }
@@ -123,7 +126,7 @@ const TileID* VectorTile::getTileID()
 /*                              getLayer()                               */
 /* --------------------------------------------------------------------- */
 
-const OGRVTLayer* VectorTile::getLayer()
+const OGRVTLayer* VectorTile::getLayer() const
 {
     return poLayer_;
 }
@@ -132,7 +135,7 @@ const OGRVTLayer* VectorTile::getLayer()
 /*                              isOriginalTile()                         */
 /* --------------------------------------------------------------------- */
 
-int VectorTile::isOriginalTile()
+int VectorTile::isOriginalTile() const
 {
     return bOriginal_;
 }
@@ -141,7 +144,7 @@ int VectorTile::isOriginalTile()
 /*                           getFeatureCount()                           */
 /* --------------------------------------------------------------------- */
 
-int VectorTile::getFeatureCount()
+int VectorTile::getFeatureCount() const
 {
     return nFeature_;
 }
@@ -169,7 +172,7 @@ OGRFeature*  VectorTile::getNextFeature()
         return NULL;
     }
     if(papoFeatures_ && papoFeatures_[nIterator_] && 
-            poFeatureCompatibleFlags[nIterator_])
+            poFeatureCompatibleFlags_[nIterator_])
     {
         return papoFeatures_[0];
     }
@@ -189,7 +192,7 @@ void VectorTile::resetReading()
 /*                            deSerialize()                              */
 /* --------------------------------------------------------------------- */
 
-int VectorTile::deSerialize(char* buf)
+int VectorTile::deSerialize(unsigned char* buf)
 {
     printf("feilunzhou: base class's function, you should implemente \
             this by yourself\n");
@@ -211,14 +214,13 @@ int VectorTile::fetchTile(TileID* poTileID)
     if(deSerialize(poRowData))
     {
         free(poRowData);
-        performFilting();
         return 0;
     }
     free(poRowData);
     return 1;
 }
 
-int VectorTile::fetchTile(const char* pszLayerName, int x, int y, int z=0)
+int VectorTile::fetchTile(const char* pszLayerName, int x, int y, int z)
 {
 
     clearTile();
@@ -242,10 +244,10 @@ int VectorTile::fetchTile(const char* pszLayerName, int x, int y, int z=0)
 
 int VectorTile::deleteIncompatibleFeatures()
 {
-    for(int i=0; i<nFeature; ++i)
+    for(int i=0; i<nFeature_; ++i)
     {
-        if(poFeatureCompatibleFlags_[i] && poFeatures_[i])
-            free(poFeatures_[i]);
+        if(poFeatureCompatibleFlags_[i] && papoFeatures_[i])
+            free(papoFeatures_[i]);
     }
     return 0;
 }
@@ -258,7 +260,7 @@ int VectorTile::deleteIncompatibleFeatures()
  * if no error return 0, else return 1
  */
 
-int VectorTile::performFiltring(int bFilteGeom, int bFilteAttr)
+int VectorTile::performFilting(int bFilteGeom, int bFilteAttr)
 {
     int fidFiltingFlag = filteFID();
     int geomFiltingFlag = 1;
@@ -280,9 +282,9 @@ int VectorTile::performFiltring(int bFilteGeom, int bFilteAttr)
 
 int VectorTile::filteFID()
 {
-    for(int i=0; i<nFeature; ++i)
+    for(int i=0; i<nFeature_; ++i)
     {
-        if(poFeatureCompatibleFlags_[i] && poFeatures_[i] && 
+        if(poFeatureCompatibleFlags_[i] && papoFeatures_[i] && 
                 poLayer_->GetHash()->hasKey( poFeatures_[i]->GetFid()) )
         {
             poFeatureCompatibleFlags_[i] = 0;
@@ -298,9 +300,9 @@ int VectorTile::filteFID()
 
 int VectorTile::filteGeometry()
 {
-    for(int i=0; i<nFeature; ++i)
+    for(int i=0; i<nFeature_; ++i)
     {
-        if(poFeatureCompatibleFlags_[i] && poFeatures_[i] && 
+        if(poFeatureCompatibleFlags_[i] && papoFeatures_[i] && 
                 /* TODO: add geometry filtering judgement */
                 poLayer_->GetHash()->hasKey( poFeatures_[i]->GetFid()) )
         {
@@ -325,13 +327,13 @@ int VectorTile::filteAttributes()
 /*                              commitToLayer()                          */
 /* --------------------------------------------------------------------- */
 
-int VectorTile::commitToLayer()
+int VectorTile::commitToLayer() const
 {
     /* copy feature into layer */
-    for(int i=0; i<nFeatures_; ++i)
+    for(int i=0; i<nFeature_; ++i)
     {
-        if( poFeatureCompatibleFlags_[i] && poFeatures_[i] )
-            poLayer_->CreateFeature(poFeature[i]); /* deep copy */
+        if( poFeatureCompatibleFlags_[i] && papoFeatures_[i] )
+            poLayer_->CreateFeature(papoFeatures_[i]); /* deep copy */
     }
     return 0;
 }
