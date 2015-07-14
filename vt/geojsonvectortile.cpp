@@ -34,8 +34,60 @@ GeoJSONVectorTile::~GeoJSONVectorTile()
 /*                           deSerialize()                              */
 /************************************************************************/
 
-int GeoJSONVectorTile::deSerialize( unsigned char* pRowdata)
+int GeoJSONVectorTile::deSerialize( unsigned char* pRawdata)
 {
+    int nFea = ParseOutFeatureCount(pRawData);
+    nFeature_ = nFea;
+    poFeatures_ = (OGRFeature**)malloc(sizeof(OGRFeature*) * nFea);
+    if(!poFeatures_)
+    {
+        nFeature_ = 0;
+        return 0;
+    }
+    poFeatureCompatibleFlags_ = (int*)malloc(sizeof(int) * nFea);
+    if(!poFeatureCompatibleFlags_ )
+    {
+        nFeature_ = 0;
+        free(poFeatures_);
+        return 0;
+    }
+    memset(poFeatures_, 0, nFeature_);
+    memset(poFeatureCompatibleFlags_, 1, nFeature_);
+
+    /* TODO: parse out every featuer */
+    for(int i=0; i<nFeature_; ++i)
+    {
+        poFeatures_[i] = new OGRFeature(poLayer_->GetLayerDefn());
+        if(poFeatures_[i]) continue;
+
+        /* add geometry */
+        unsigned char* pszGeomWkb =  pasrseOutGeom(pRawData);
+        poFeatures_[i]->SetGeometryDirectly( 
+                        OGRGeometryFactory::CreateFromWkb( pszGeomWkb ) );
+
+        /* add fields */
+        OGRFeatureDefn* poFDefn = poLayer_->GetLayerDefn();
+        int nField = poFDefn->GetFieldCount();
+        for(int i=0; i<nField; ++i)
+        {
+            OGRFieldType eFT = poFDefn->GetFieldDefn()->GetType();
+            if( eFT == OFTInteger)
+            {
+            }
+            else if(eFT == OFTReal)
+            {
+            }
+            else if(eFT == OFTString)
+            {
+            }
+            else 
+            {
+                SetField(i, );
+            }
+            
+        }
+    }
+
     return 0;
 }
 

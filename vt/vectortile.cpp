@@ -14,7 +14,8 @@ VectorTile::VectorTile(OGRVTLayer* poLayer, TileID* poTileID):
     nFeature_(0),
     nCompatibleFeature_(0),
     nIterator_(0),
-    bOriginal_(1)
+    bOriginal_(1),
+    bFIDFilted_(0)
 {
 }
 
@@ -282,15 +283,19 @@ int VectorTile::performFilting(int bFilteGeom, int bFilteAttr)
 
 int VectorTile::filteFID()
 {
+    if(bFIDFilted_) return 0;
+
+    /* if not filted */
     for(int i=0; i<nFeature_; ++i)
     {
-        if(poFeatureCompatibleFlags_[i] && papoFeatures_[i] && 
-                poLayer_->GetHash()->hasKey( poFeatures_[i]->GetFid()) )
+        if( poFeatureCompatibleFlags_[i] && papoFeatures_[i] && 
+                poLayer_->GetHash()->has( poFeatures_[i]->GetFid()) )
         {
             poFeatureCompatibleFlags_[i] = 0;
             nCompatibleFeature_--;
         }
     }
+    bFIDFilted_ = 1;
     return 0;
 }
 
@@ -304,7 +309,7 @@ int VectorTile::filteGeometry()
     {
         if(poFeatureCompatibleFlags_[i] && papoFeatures_[i] && 
                 /* TODO: add geometry filtering judgement */
-                poLayer_->GetHash()->hasKey( poFeatures_[i]->GetFid()) )
+                poLayer_->GetHash()->has( papoFeatures_[i]->GetFid()) )
         {
             poFeatureCompatibleFlags_[i] = 0;
             nCompatibleFeature_--;
@@ -329,11 +334,17 @@ int VectorTile::filteAttributes()
 
 int VectorTile::commitToLayer() const
 {
+    if(!bFIDFilted_) filteFID();
+
     /* copy feature into layer */
     for(int i=0; i<nFeature_; ++i)
     {
         if( poFeatureCompatibleFlags_[i] && papoFeatures_[i] )
+        {
             poLayer_->CreateFeature(papoFeatures_[i]); /* deep copy */
+            poLayer_->GetHash()->insert(papoFeatures_[i]->GetFid());
+        }
     }
+
     return 0;
 }

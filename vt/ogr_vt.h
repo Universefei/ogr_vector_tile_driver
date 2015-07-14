@@ -63,6 +63,7 @@ class VectorTile
 
     /* if this tile is original tile, if deleteIncompatibleFeature, set 0;*/
     int                 bOriginal_; 
+    int                 bFIDFilted_;
 
 public:
                         VectorTile(OGRVTLayer* poLayer, TileID* poTileID = NULL);
@@ -218,7 +219,7 @@ class OGRVTLayer : public OGRLayer
 
     /* fei: fetch all feature into layer according to filter */
     void                PerformFilter();  /* fei */
-    CPLHashSet*         GetHash() const; /* fei */
+    HashTable*          GetHash() const; /* fei */
 
     typedef vector<TileID*> TileIDSet;
     vector<TileID*>     GetIntersectTiles(double minx, double miny, 
