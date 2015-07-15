@@ -38,8 +38,10 @@ int GeoJSONVectorTile::deSerialize( unsigned char* pRawdata)
 {
     int nFea = ParseOutFeatureCount(pRawData);
     nFeature_ = nFea;
-    poFeatures_ = (OGRFeature**)malloc(sizeof(OGRFeature*) * nFea);
-    if(!poFeatures_)
+
+    if(papoFeatures_) clearTile();
+    papoFeatures_ = (OGRFeature**)malloc(sizeof(OGRFeature*) * nFea);
+    if(!papoFeatures_)
     {
         nFeature_ = 0;
         return 0;
@@ -57,8 +59,11 @@ int GeoJSONVectorTile::deSerialize( unsigned char* pRawdata)
     /* TODO: parse out every featuer */
     for(int i=0; i<nFeature_; ++i)
     {
-        poFeatures_[i] = new OGRFeature(poLayer_->GetLayerDefn());
-        if(poFeatures_[i]) continue;
+        papoFeatures_[i] = new OGRFeature(poLayer_->GetLayerDefn());
+        if(!poFeatures_[i]) 
+        {
+            --i; continue;
+        }
 
         /* add geometry */
         unsigned char* pszGeomWkb =  pasrseOutGeom(pRawData);

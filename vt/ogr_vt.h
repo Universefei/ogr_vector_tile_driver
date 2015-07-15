@@ -50,6 +50,8 @@ public:
 
 class VectorTile 
 {
+protected:
+
     TileID*             poTileID_;
     mutable OGRVTLayer*   poLayer_;
     /* OGRVTLayer*         poLayer_; */
@@ -77,6 +79,7 @@ public:
     int                 isOriginalTile() const;
     virtual int         getFeatureCount() const;
 
+
     virtual OGRFeature* getFirstFeature();
     virtual OGRFeature* getNextFeature();
     virtual void        resetReading();
@@ -90,6 +93,9 @@ public:
     virtual int         commitToLayer() const; /* XXX:commit all compatible feature into poLayer */
     virtual int         deSerialize(unsigned char*) = 0; /* XXX: deserialize buff into features */
     int                 performFilting(int bFilteGeom=0, int bFilteAttr=0); /* XXX: template method pattern */
+
+public:
+    bool                AddFeature(OGRFeature* poFeature); /* need by geojson reader */
 
 protected:
 
