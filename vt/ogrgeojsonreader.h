@@ -65,6 +65,7 @@ class OGRGeoJSONDataSource;
 
 class OGRGeoJSONReader
 {
+
 public:
 
     OGRGeoJSONReader();
@@ -74,14 +75,35 @@ public:
     void SetSkipAttributes( bool bSkip );
 
     OGRErr Parse( const char* pszText );
-    /* void ReadLayers( OGRGeoJSONDataSource* poDS ); */
-    /* void ReadLayer( OGRGeoJSONDataSource* poDS, */
-    /*                 const char* pszName, */
-    /*                 json_object* poObj ); */
-    void ReadLayers( VectorTile* poVTile );
-    void ReadLayer( VectorTile* poVTile,
+    void ReadLayers( OGRGeoJSONDataSource* poDS );
+    void ReadLayer( OGRGeoJSONDataSource* poDS,
                     const char* pszName,
                     json_object* poObj );
+
+    /* fei added */
+    void ReadTile( VectorTile* poVTile ); /* TODO */
+    void ReadTile( VectorTile* poVTile,
+                    const char* pszName,
+                    json_object* poObj );
+
+    //
+    // Translation utilities.
+    //
+    bool GenerateLayerDefn( OGRLayer* poLayer); /* TODO fei added */
+    bool GenerateLayerDefn( OGRLayer* poLayer, json_object* poGJObject );
+    bool GenerateFeatureDefn( OGRLayer* poLayer, json_object* poObj );
+
+    /* bool AddFeature( OGRGeoJSONLayer* poLayer, OGRGeometry* poGeometry ); */
+    /* bool AddFeature( OGRGeoJSONLayer* poLayer, OGRFeature* poFeature ); */
+    bool AddFeature( VectorTile* poTile, OGRGeometry* poGeometry );
+    bool AddFeature( VectorTile* poTile, OGRFeature* poFeature );
+
+    OGRGeometry* ReadGeometry( json_object* poObj );
+    /* OGRFeature* ReadFeature( OGRGeoJSONLayer* poLayer, json_object* poObj ); */
+    OGRFeature* ReadFeature( VectorTile* poTile, json_object* poObj );
+
+    /* void ReadFeatureCollection( OGRGeoJSONLayer* poLayer, json_object* poObj ); */
+    void ReadFeatureCollection( VectorTile* poTile, json_object* poObj );
 
 private:
 
@@ -99,23 +121,6 @@ private:
     OGRGeoJSONReader( OGRGeoJSONReader const& );
     OGRGeoJSONReader& operator=( OGRGeoJSONReader const& );
 
-    //
-    // Translation utilities.
-    //
-    bool GenerateLayerDefn( OGRGeoJSONLayer* poLayer, json_object* poGJObject );
-    bool GenerateFeatureDefn( OGRGeoJSONLayer* poLayer, json_object* poObj );
-
-    /* bool AddFeature( OGRGeoJSONLayer* poLayer, OGRGeometry* poGeometry ); */
-    /* bool AddFeature( OGRGeoJSONLayer* poLayer, OGRFeature* poFeature ); */
-    bool AddFeature( VectorTile* poTile, OGRGeometry* poGeometry );
-    bool AddFeature( VectorTile* poTile, OGRFeature* poFeature );
-
-    OGRGeometry* ReadGeometry( json_object* poObj );
-    /* OGRFeature* ReadFeature( OGRGeoJSONLayer* poLayer, json_object* poObj ); */
-    OGRFeature* ReadFeature( VectorTile* poLayer, json_object* poObj );
-
-    /* void ReadFeatureCollection( OGRGeoJSONLayer* poLayer, json_object* poObj ); */
-    void ReadFeatureCollection( VectorTile* poLayer, json_object* poObj );
 
 };
 

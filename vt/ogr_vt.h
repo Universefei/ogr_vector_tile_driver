@@ -56,10 +56,13 @@ protected:
     mutable OGRVTLayer*   poLayer_;
     /* OGRVTLayer*         poLayer_; */
 
-    OGRFeature**        papoFeatures_; 
-    int                 *poFeatureCompatibleFlags_;
+    /* OGRFeature**        papoFeatures_; */ 
+    /* int                 *poFeatureCompatibleFlags_; */
 
-    int                 nFeature_; /* allocated feature count */
+    vector<OGRFeature*> papoFeatures_;
+    vector<int>         poFeatureCompatibleFlags_;
+
+    /* int                 nFeature_; /1* allocated feature count *1/ */
     int                 nCompatibleFeature_; /* compatible feature count */
     int                 nIterator_;
 

@@ -58,6 +58,18 @@ TileID& TileID::operator=(const TileID& duplica)
 }
 
 /* --------------------------------------------------------------------- */
+/*                             operator ==                               */
+/* --------------------------------------------------------------------- */
+
+bool TileID::operator==(const TileID& duplica)
+
+{
+    if(this == &duplica) {return true;} 
+    return ( x_ == duplica.x_ && y_ == duplica.y_ && z_ == duplica.z_ &&
+            !strcmp(duplica.pszLayerName_, pszLayerName_) );
+}
+
+/* --------------------------------------------------------------------- */
 /*                             setLayerName()                            */
 /* --------------------------------------------------------------------- */
 

@@ -148,35 +148,47 @@ int OGRVTDataSource::Open( const char * pszNewName, int bUpdate,
     nLayers = ary.Size(); /* fei: get layer amount */
     
     papoLayers = (OGRVTLayer*)CPLMalloc(sizeof(OGRVTLayer*) * nLayers);
+    if(!papoLayers)
+    {
+        CPLError( CE_Failure, CPLE_AppDefined,
+                  "malloc layer error"
+                  " VT:*\n" );
+    }
 
-    rapidjson::Document layer;
+    /* rapidjson::Document layer; */
+
+    OGRGeoJSONReader* poReader = new OGRGeoJSONReader();
+    CPLAssert(poReader);
+
     for(int i, i<nLayers, ++i)
     {
         /* fei: 获取对应图层的元数据 */
         unsigned char* pszLayerDescBuf = poKV->getValue(ary[i].GetString());
+        poReader->Parse(( const char*)pszLayerDescBuf);
+        poReader->GenerateLayerDefn(papoLayers[i]); /* TODO */
 
-        layer.Parse(pszLayerDescBuf);
-        int srid = layer["srid"];
-        char* pszGeomType = layer["geometry_type"].GetString();
+        /* layer.Parse(pszLayerDescBuf); */
+        /* int srid = layer["srid"]; */
+        /* char* pszGeomType = layer["geometry_type"].GetString(); */
 
-        /* fei: need to parse more parameters to pass to Layer constructor */
-        OGRSpatialReference *poSRS = new OGRSpatialReference();
-        poSRS->ImportFromEPSG(srid);
-        papoLayers[i] = new OGRVTLayer(layer["name"].GetString(),
-                poSRS, pszGeomType );
+        /* /1* fei: need to parse more parameters to pass to Layer constructor *1/ */
+        /* OGRSpatialReference *poSRS = new OGRSpatialReference(); */
+        /* poSRS->ImportFromEPSG(srid); */
+        /* papoLayers[i] = new OGRVTLayer(layer["name"].GetString(), */
+        /*         poSRS, pszGeomType ); */
 
-        /* fei: add Attributtes define */
-        if(papoLayers[i])
-        {
-            /* fei: parse out more field define from json */
-            for()
-            {
-                /* TODO */
-                papoLayers[i]->CreateField();
-            }
-        }
+        /* /1* fei: add Attributtes define *1/ */
+        /* if(papoLayers[i]) */
+        /* { */
+        /*     /1* fei: parse out more field define from json *1/ */
+        /*     for() */
+        /*     { */
+        /*         /1* TODO *1/ */
+        /*         papoLayers[i]->CreateField(); */
+        /*     } */
+        /* } */
 
-        delete  poSRS;
+        /* delete  poSRS; */
     }
 
     return bRet;

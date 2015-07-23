@@ -128,7 +128,8 @@ void OGRGeoJSONReader::ReadLayer( OGRGeoJSONDataSource* poDS,
 
     OGRSpatialReference* poSRS = NULL;
     poSRS = OGRGeoJSONReadSpatialReference( poObj );
-    if (poSRS == NULL ) {
+    if (poSRS == NULL ) 
+    {
         // If there is none defined, we use 4326
         poSRS = new OGRSpatialReference();
         if( OGRERR_NONE != poSRS->importFromEPSG( 4326 ) )
@@ -150,6 +151,7 @@ void OGRGeoJSONReader::ReadLayer( OGRGeoJSONDataSource* poDS,
             "Layer schema generation failed." );
 
         delete poLayer;
+
         return;
     }
 
@@ -204,11 +206,76 @@ void OGRGeoJSONReader::ReadLayer( OGRGeoJSONDataSource* poDS,
     poDS->AddLayer(poLayer);
 }
 
+
+/************************************************************************/
+/*                            ReadTile                                  */
+/************************************************************************/
+
+
+void OGRGeoJSONReader::ReadTile( VectorTile* poTile )
+
+{
+    GeoJSONObject::Type objType = OGRGeoJSONGetType( poGJObject_ );
+
+/* -------------------------------------------------------------------- */
+/*      Translate single geometry-only Feature object.                  */
+/* -------------------------------------------------------------------- */
+    if( GeoJSONObject::ePoint == objType
+        || GeoJSONObject::eMultiPoint == objType
+        || GeoJSONObject::eLineString == objType
+        || GeoJSONObject::eMultiLineString == objType
+        || GeoJSONObject::ePolygon == objType
+        || GeoJSONObject::eMultiPolygon == objType
+        || GeoJSONObject::eGeometryCollection == objType )
+    {
+        OGRGeometry* poGeometry = NULL;
+        poGeometry = ReadGeometry( poObj );
+        if( !AddFeature( poTile, poGeometry ) )
+        {
+            CPLDebug( "GeoJSON",
+                      "Translation of single geometry failed." );
+            /* delete poLayer; */
+            return;
+        }
+    }
+
+/* -------------------------------------------------------------------- */
+/*      Translate single but complete Feature object.                   */
+/* -------------------------------------------------------------------- */
+    else if( GeoJSONObject::eFeature == objType )
+    {
+        OGRFeature* poFeature = NULL;
+        poFeature = ReadFeature( poTile, poGJObject_ ); /* XXX */
+        if( !AddFeature( poTile, poFeature ) )
+        {
+            CPLDebug( "GeoJSON",
+                      "Translation of single feature failed." );
+
+            /* delete poLayer; */
+            return;
+        }
+    }
+
+/* -------------------------------------------------------------------- */
+/*      Translate multi-feature FeatureCollection object.               */
+/* -------------------------------------------------------------------- */
+    else if( GeoJSONObject::eFeatureCollection == objType )
+    {
+        ReadFeatureCollection( poTile, poGJObject_ );
+    }
+
+    CPLErrorReset();
+
+}
+
+
 /************************************************************************/
 /*                    OGRGeoJSONReadSpatialReference                    */
 /************************************************************************/
 
-OGRSpatialReference* OGRGeoJSONReadSpatialReference( json_object* poObj) {
+
+OGRSpatialReference* OGRGeoJSONReadSpatialReference( json_object* poObj) 
+{
     
 /* -------------------------------------------------------------------- */
 /*      Read spatial reference definition.                              */
@@ -322,29 +389,45 @@ OGRSpatialReference* OGRGeoJSONReadSpatialReference( json_object* poObj) {
 
     return poSRS;
 }
+
+
 /************************************************************************/
 /*                           SetPreserveGeometryType                    */
 /************************************************************************/
+
 
 void OGRGeoJSONReader::SetPreserveGeometryType( bool bPreserve )
 {
     bGeometryPreserve_ = bPreserve;
 }
 
+
 /************************************************************************/
 /*                           SetSkipAttributes                          */
 /************************************************************************/
+
 
 void OGRGeoJSONReader::SetSkipAttributes( bool bSkip )
 {
     bAttributesSkip_ = bSkip;
 }
 
+
 /************************************************************************/
 /*                         GenerateLayerDefn()                          */
 /************************************************************************/
 
-bool OGRGeoJSONReader::GenerateLayerDefn( OGRGeoJSONLayer* poLayer, json_object* poGJObject )
+bool OGRGeoJSONReader::GenerateLayerDefn( OGRLayer* poLayer )
+{
+    CPLAssert( NULL != poGJObject_ );
+    return GenerateLayerDefn(poLayer, poGJObject_);
+}
+
+/************************************************************************/
+/*                         GenerateLayerDefn()                          */
+/************************************************************************/
+
+bool OGRGeoJSONReader::GenerateLayerDefn( OGRLayer* poLayer, json_object* poGJObject )
 {
     CPLAssert( NULL != poGJObject );
     CPLAssert( NULL != poLayer->GetLayerDefn() );
@@ -429,8 +512,9 @@ bool OGRGeoJSONReader::GenerateLayerDefn( OGRGeoJSONLayer* poLayer, json_object*
 /************************************************************************/
 /*                        GenerateFeatureDefn()                         */
 /************************************************************************/
-bool OGRGeoJSONReader::GenerateFeatureDefn( OGRGeoJSONLayer* poLayer, 
+bool OGRGeoJSONReader::GenerateFeatureDefn( OGRLayer* poLayer, 
         json_object* poObj )
+
 {
     OGRFeatureDefn* poDefn = poLayer->GetLayerDefn();
     CPLAssert( NULL != poDefn );
@@ -442,8 +526,9 @@ bool OGRGeoJSONReader::GenerateFeatureDefn( OGRGeoJSONLayer* poLayer,
 /* -------------------------------------------------------------------- */
     json_object* poObjProps = NULL;
     poObjProps = OGRGeoJSONFindMemberByName( poObj, "properties" );
-    if( NULL != poObjProps &&
-        json_object_get_type(poObjProps) == json_type_object )
+
+    if( NULL != poObjProps && 
+            json_object_get_type(poObjProps) == json_type_object )
     {
         if (bIsGeocouchSpatiallistFormat)
         {
@@ -488,8 +573,7 @@ bool OGRGeoJSONReader::GenerateFeatureDefn( OGRGeoJSONLayer* poLayer,
                     }
                 }
 
-                OGRFieldDefn fldDefn( it.key,
-                                      GeoJSONPropertyToFieldType( it.val ) );
+                OGRFieldDefn fldDefn( it.key, GeoJSONPropertyToFieldType( it.val ) );
                 poDefn->AddFieldDefn( &fldDefn );
             }
             else
@@ -544,6 +628,7 @@ bool OGRGeoJSONReader::GenerateFeatureDefn( OGRGeoJSONLayer* poLayer,
 /************************************************************************/
 
 bool OGRGeoJSONReader::AddFeature( VectorTile* poTile, OGRGeometry* poGeometry )
+
 {
     bool bAdded = false;
 
@@ -567,6 +652,7 @@ bool OGRGeoJSONReader::AddFeature( VectorTile* poTile, OGRGeometry* poGeometry )
 /************************************************************************/
 
 bool OGRGeoJSONReader::AddFeature( VectorTile* poTile, OGRFeature* poFeature )
+
 {
     bool bAdded = false;
   
@@ -597,6 +683,7 @@ OGRGeometry* OGRGeoJSONReader::ReadGeometry( json_object* poObj )
 /*      OGRGeometryCollection type by using option                      */
 /*      GEOMETRY_AS_COLLECTION=NO|YES (NO is default).                 */
 /* -------------------------------------------------------------------- */
+
     if( NULL != poGeometry )
     {
         if( !bGeometryPreserve_ 
@@ -630,12 +717,13 @@ OGRFeature* OGRGeoJSONReader::ReadFeature( VectorTile* poTile, json_object* poOb
 
     json_object* poObjProps = NULL;
     poObjProps = OGRGeoJSONFindMemberByName( poObj, "properties" );
+
     if( !bAttributesSkip_ && NULL != poObjProps &&
         json_object_get_type(poObjProps) == json_type_object )
     {
         if (bIsGeocouchSpatiallistFormat)
         {
-            json_object* poId = json_object_object_get(poObjProps, "_id");
+            json_object* poId = json_object_object_get( poObjProps, "_id");
             if (poId != NULL && json_object_get_type(poId) == json_type_string)
                 poFeature->SetField( "_id", json_object_get_string(poId) );
 
@@ -831,6 +919,7 @@ OGRFeature* OGRGeoJSONReader::ReadFeature( VectorTile* poTile, json_object* poOb
 
 void
 OGRGeoJSONReader::ReadFeatureCollection( VectorTile* poTile, json_object* poObj )
+
 {
     json_object* poObjFeatures = NULL;
     poObjFeatures = OGRGeoJSONFindMemberByName( poObj, "features" );
