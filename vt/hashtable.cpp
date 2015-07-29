@@ -25,12 +25,11 @@ typedef struct _ListNode {
 int ListPreInsert(ListNode*& poH, int key)
 {
     ListNode* poNew = (ListNode*)malloc(sizeof(ListNode));
-    if(poNew)
-    {
-        poNew->key = key;
-        poNew->poNext = poH;
-        poH = poNew;
-    }
+    if(!poNew) { return 1; }
+
+    poNew->key = key;
+    poNew->poNext = poH;
+    poH = poNew;
     return 0;
 };
 

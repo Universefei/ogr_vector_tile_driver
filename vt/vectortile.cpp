@@ -24,14 +24,14 @@ VectorTile::VectorTile(const VectorTile& ref)
     poTileID_ = new TileID(*ref.poTileID_);
     poLayer_ = ref.poLayer_;
 
-    for(int i=0, int nMax = ref.papoFeatures_.size();
-            i<nMax; ++i)
+    int nMax = ref.papoFeatures_.size();
+    for(int i = 0; i<nMax; ++i) 
     {
         papoFeatures_.push_back( ref.papoFeatures_[i]->Clone() );
         poFeatureCompatibleFlags_.push_back(1);
     }
     
-    nIterator = 0;
+    nIterator_ = 0;
     bOriginal_ = ref.isOriginalTile();
 }
 
@@ -58,14 +58,14 @@ VectorTile& VectorTile::operator= (const VectorTile& ref)
     poTileID_ = new TileID(*ref.poTileID_);
     poLayer_ = ref.poLayer_;
 
-    for(int i=0, int nMax = ref.papoFeatures_.size();
-            i<nMax; ++i)
+    int nMax = ref.papoFeatures_.size();
+    for(int i=0; i<nMax; ++i)
     {
         papoFeatures_.push_back( ref.papoFeatures_[i]->Clone() );
         poFeatureCompatibleFlags_.push_back(1);
     }
     
-    nIterator = 0;
+    nIterator_ = 0;
     bOriginal_ = ref.isOriginalTile();
 
     return *this;
@@ -92,8 +92,8 @@ int VectorTile::clearTile()
         poTileID_ = NULL;
     }
 
-    
-    for(int i=0, int nMax = papoFeatures_.size(); i < nMax ; ++i)
+    int nMax = papoFeatures_.size();
+    for(int i=0; i < nMax ; ++i)
     {
         if(papoFeatures_[i])
         {
@@ -102,8 +102,9 @@ int VectorTile::clearTile()
         }
     }
 
-    papoFeatures_.size() = 0;
-    nCompatibleFeature_.size() = 0;
+    papoFeatures_.resize(0);
+    poFeatureCompatibleFlags_.resize(0);
+    nCompatibleFeature_ = 0;
     nIterator_ = 0;
     bOriginal_ = 1;
 
@@ -123,7 +124,7 @@ const TileID* VectorTile::getTileID() const
 /*                              getLayer()                               */
 /* --------------------------------------------------------------------- */
 
-const OGRVTLayer* VectorTile::getLayer() const
+OGRVTLayer* VectorTile::getLayer() const
 {
     return poLayer_;
 }
@@ -153,14 +154,15 @@ int VectorTile::getFeatureCount() const
 OGRFeature*  VectorTile::getFirstFeature()
 {
     int nLen = papoFeatures_.size();
-    if(nLen == 0) {return NULL};
+    if(nLen == 0) {return NULL;};
 
     nIterator_ = 0;
+
     while( !poFeatureCompatibleFlags_[nIterator_] || 
                                             !papoFeatures_[nIterator_])
     {
         nIterator_ = (++nIterator_) % nLen;
-        if(nIterator_ == 0) {return NULL};
+        if(nIterator_ == 0) {return NULL;};
     }
 
     return papoFeatures_[nIterator_];
@@ -173,7 +175,7 @@ OGRFeature*  VectorTile::getFirstFeature()
 OGRFeature*  VectorTile::getNextFeature()
 {
     int nLen = papoFeatures_.size();
-    if(nLen == 0) {return NULL};
+    if(nLen == 0) {return NULL; };
 
     do
     {
@@ -181,7 +183,7 @@ OGRFeature*  VectorTile::getNextFeature()
         if(nIterator_ == 0) return NULL;
     }
     while( !poFeatureCompatibleFlags_[nIterator_] || 
-                                            !papoFeatures_[nIterator_])
+                                            !papoFeatures_[nIterator_]);
 
     return papoFeatures_[nIterator_];
 }
@@ -234,7 +236,7 @@ int VectorTile::fetchTile(TileID* poTileID)
     int deSerializeFlag = 1;
     if(poRowData)
     {
-        flag = deSerialize(poRowData);
+        deSerializeFlag = deSerialize(poRowData);
         free(poRowData);
     }
 
@@ -308,7 +310,7 @@ int VectorTile::filteFID()
     for(int i=0; i<nMax; ++i)
     {
         if( ( poFeatureCompatibleFlags_[i] && 
-                poLayer_->GetHash()->has( papoFeatures_[i]->GetFid()) ) ||
+                poLayer_->GetHash()->has( papoFeatures_[i]->GetFID()) ) ||
                 !papoFeatures_[i] )
         {
             poFeatureCompatibleFlags_[i] = 0;
@@ -331,7 +333,7 @@ int VectorTile::filteGeometry()
     {
         if(poFeatureCompatibleFlags_[i] && papoFeatures_[i] && 
                 /* TODO: add geometry filtering judgement */
-                poLayer_->GetHash()->has( papoFeatures_[i]->GetFid()) )
+                poLayer_->GetHash()->has( papoFeatures_[i]->GetFID()) )
         {
             poFeatureCompatibleFlags_[i] = 0;
             nCompatibleFeature_--;
@@ -354,7 +356,7 @@ int VectorTile::filteAttributes()
 /*                              commitToLayer()                          */
 /* --------------------------------------------------------------------- */
 
-int VectorTile::commitToLayer() const
+int VectorTile::commitToLayer()
 
 {
     if(!bFIDFilted_) filteFID();
@@ -366,7 +368,7 @@ int VectorTile::commitToLayer() const
         if( poFeatureCompatibleFlags_[i] && papoFeatures_[i] )
         {
             poLayer_->CreateFeature(papoFeatures_[i]); /* deep copy */
-            poLayer_->GetHash()->insert(papoFeatures_[i]->GetFid());
+            poLayer_->GetHash()->insert(papoFeatures_[i]->GetFID());
         }
     }
 
@@ -387,4 +389,3 @@ bool VectorTile::AddFeature(OGRFeature* poFeature)
 
     return true;
 }
-

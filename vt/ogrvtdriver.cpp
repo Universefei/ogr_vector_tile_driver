@@ -68,7 +68,7 @@ OGRDataSource *OGRVTDriver::Open( const char * pszDSConnInfo, int )
 
     poDS = new OGRVTDataSource();
 
-    if( !poDS->Open( pszDSConnInfo, bUpdate, TRUE ) )
+    if( !poDS->Open( pszDSConnInfo, 0, TRUE ) )
     {
         delete poDS;
         return NULL;

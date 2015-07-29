@@ -36,6 +36,7 @@ public:
                 TileID(CPLString cplString);
                 ~TileID();
     TileID&     operator= (const TileID& duplica); /* TODO */
+    bool        operator==(const TileID& duplica);
 
     int         x_;
     int         y_;
@@ -93,7 +94,7 @@ public:
 
     virtual int         clearTile(); /* XXX: purge all tile data */
 
-    virtual int         commitToLayer() const; /* XXX:commit all compatible feature into poLayer */
+    virtual int         commitToLayer() ; /* XXX:commit all compatible feature into poLayer */
     virtual int         deSerialize(unsigned char*) = 0; /* XXX: deserialize buff into features */
     int                 performFilting(int bFilteGeom=0, int bFilteAttr=0); /* XXX: template method pattern */
 
@@ -142,10 +143,11 @@ public:
                         FileKV(const FileKV& cpy);
                         ~FileKV();
 
-    const FileKV&       operator= (const FileKV& assignment);
-    const char*         getName();
-    virtual int         open(CPLString openinfo);
-    virtual unsigned char*       getValue(CPLString strKey);
+    FileKV&             operator= (const FileKV& assignment);
+
+    const char*         getName() const;
+    int                 open(CPLString openinfo) ;
+    unsigned char*      getValue(CPLString strKey) const;
 
 };
 
@@ -156,10 +158,12 @@ class RedisKV : public KVStore
 public:
                         RedisKV();
                         RedisKV(CPLString connInfo);
+                        ~RedisKV();
 
-    const char*         getName();
-    virtual int         open(CPLString connInfo);
-    virtual unsigned char*       getValue(CPLString strKey);
+    const char*         getName() const;
+    virtual int         open(CPLString connInfo) ;
+    virtual unsigned char*       getValue(CPLString strKey) const;
+
 };
 
 
@@ -169,22 +173,14 @@ class KVStoreFactory
     int                 nKVStores_;
 
 public:
-    KVStore*            getAndOpenKVStoreByName(CPLString kvName, CPLString openInfo);
+    KVStore*            getAndOpenKVStore(CPLString kvName, CPLString openInfo);
     static KVStoreFactory*     GetInstance();
+    KVStore*            createKVStore(CPLString name);
 
 private:
                         KVStoreFactory();
-    KVStore*            createKVStore(CPLString name);
 
 };
-
-
-/**
- * reference OGRSFDriverRegistrar
- */
-
-static void *hDRMutex = NULL;
-static KVStoreFactory* volatile poGKVFactorty = NULL; /* fei: why volatile */
 
 
 /************************************************************************/
@@ -232,11 +228,12 @@ class OGRVTLayer : public OGRLayer
 
     typedef vector<TileID*> TileIDSet;
     vector<TileID*>     GetIntersectTiles(double minx, double miny, 
-                                        double maxx, double maxy, int srid);
-    vector<TileID*>     GetIntersectTiles(OGRGeometry* poGeom);
+                                        double maxx, double maxy, 
+                                        int srid, int level=14);
+    vector<TileID*>     GetIntersectTiles(OGRGeometry* poGeom, int level=14);
 
     /* XXX: get all data into papoFeatures */
-    int                 GetTile(int x, int y, int z=0); 
+    int                 GetTile(int x, int y, int z=14); 
     int                 GetTile(TileID*);
 
     const KVStore*      GetKVStore() const ; /* needed by class VectorTile */
@@ -296,6 +293,7 @@ class OGRVTDataSource : public OGRDataSource
   public:
 
                         OGRVTDataSource( const char *, char ** );
+                        OGRVTDataSource();
                         ~OGRVTDataSource();
 
     int                 Open( const char *, int bUpdate, int bTestOpen ); /* fei */

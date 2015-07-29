@@ -11,6 +11,7 @@
 #include "cpl_conv.h"
 #include "cpl_string.h"
 #include "ogr_spatialref.h"
+#include "ogrgeojsonreader.h"
 
 #include "rapidjson/document.h"
 
@@ -25,6 +26,14 @@ OGRVTDataSource::OGRVTDataSource( const char *pszFilename,
 
 {
     pszName = CPLStrdup(pszFilename);
+    papoLayers = NULL;
+    nLayers = 0;
+}
+
+OGRVTDataSource::OGRVTDataSource()
+
+{
+    pszName = NULL;
     papoLayers = NULL;
     nLayers = 0;
 }
@@ -58,6 +67,7 @@ int OGRVTDataSource::Open( const char * pszNewName, int bUpdate,
                               int bTestOpen )
 
 {
+    int bRet = 0;
     CPLAssert( nLayers == 0 );
 
     /**
@@ -87,6 +97,7 @@ int OGRVTDataSource::Open( const char * pszNewName, int bUpdate,
 /* -------------------------------------------------------------------- */
     char             *pszKvStoreStart;
     CPLString         osKvStore;
+
     pszKvStoreStart = strstr(pszConnectionName, "kv_store=");
     if (pszKvStoreStart == NULL)
         pszKvStoreStart = strstr(pszConnectionName, "KV_STORE=");
@@ -97,7 +108,7 @@ int OGRVTDataSource::Open( const char * pszNewName, int bUpdate,
 
         pszKvStore = CPLStrdup( pszKvStoreStart + strlen("kv_store=") );
 
-        pszEnd = strchr(pszKvStore, ' ');
+        pszEnd = strchr(pszKvStoreStart, ' ');
         if( pszEnd == NULL )
             pszEnd = pszConnectionName + strlen(pszConnectionName);
 
@@ -107,18 +118,21 @@ int OGRVTDataSource::Open( const char * pszNewName, int bUpdate,
         pszKvStore[pszEnd - pszKvStoreStart - strlen("kv_store=")] = '\0';
 
         osKvStore = pszKvStore;
+
         CPLFree(pszKvStore);
     }
     else
     {
         osKvStore = "file";
     }
-        CPLString otherConnInfo = ;
 
 /* -------------------------------------------------------------------- */
 /*      Construct KVStore instance via given conninfo                   */
 /* -------------------------------------------------------------------- */
-    KVStore *poGenKV = KVStoreFactory::GetKVStoreByName(osKvStore);
+
+    KVStore *poGenKV = 
+        KVStoreFactory::GetInstance()->createKVStore(osKvStore);
+
     if(poGenKV)
     {
         poKV = poGenKV;
@@ -133,21 +147,21 @@ int OGRVTDataSource::Open( const char * pszNewName, int bUpdate,
 /* -------------------------------------------------------------------- */
 /*      Try to establish connection.                                    */
 /* -------------------------------------------------------------------- */
-    poKV->open(otherConnInfo);
+    poKV->open(pszKvStoreStart);
 
 /* -------------------------------------------------------------------- */
 /*      Try to get layers metadata in kv store                          */
 /* -------------------------------------------------------------------- */
-    char* pszBuffer = poKV->getValue("metadata");
+    const char* pszBuffer = (const char*)poKV->getValue("metadata");
     rapidjson::Document datasource;
     datasource.Parse(pszBuffer);
 
     const rapidjson::Value& ary = datasource["layers"];
 
-    pszName = datasource["name"].GetString(); /* fei: datasource name */
+    pszName = CPLStrdup(datasource["name"].GetString() ); /* fei: datasource name */
     nLayers = ary.Size(); /* fei: get layer amount */
     
-    papoLayers = (OGRVTLayer*)CPLMalloc(sizeof(OGRVTLayer*) * nLayers);
+    papoLayers = (OGRVTLayer**)CPLMalloc(sizeof(OGRVTLayer*) * nLayers);
     if(!papoLayers)
     {
         CPLError( CE_Failure, CPLE_AppDefined,
@@ -160,7 +174,7 @@ int OGRVTDataSource::Open( const char * pszNewName, int bUpdate,
     OGRGeoJSONReader* poReader = new OGRGeoJSONReader();
     CPLAssert(poReader);
 
-    for(int i, i<nLayers, ++i)
+    for(int i=0; i<nLayers; ++i)
     {
         /* fei: 获取对应图层的元数据 */
         unsigned char* pszLayerDescBuf = poKV->getValue(ary[i].GetString());

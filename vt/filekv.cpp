@@ -16,7 +16,7 @@ FileKV::FileKV():
 FileKV::FileKV(CPLString rootPath)
 {
     pszRootPath = (char*) malloc(strlen(rootPath.c_str()) + 1);
-    strcpy(pszRootPath, rootPaht.cStr());
+    strcpy(pszRootPath, rootPath.c_str());
 }
 
 /* --------------------------------------------------------------------- */
@@ -39,20 +39,26 @@ FileKV::~FileKV()
 FileKV::FileKV(const FileKV& refp)
 {
 
-    pszRootPath = (char*) malloc(strlen(refp.rootPath.c_str()) + 1);
-    pszRootPath = memcpy(pszRootPath, refp.pszRootPath.c_str(), 
-            strlen(refp.rootPath.c_str()) + 1);
+    pszRootPath = (char*) malloc(strlen(refp.pszRootPath) + 1);
+    memcpy(pszRootPath, refp.pszRootPath, strlen(refp.pszRootPath) + 1);
 }
 
 /* --------------------------------------------------------------------- */
 /*                             operator =                                */
 /* --------------------------------------------------------------------- */
 
-const FileKV& operator= (const FileKV& rep)
+FileKV& FileKV::operator= (const FileKV& refp)
 {
-    pszRootPath = (char*) malloc(strlen(refp.rootPath.c_str()) + 1);
-    pszRootPath = memcpy(pszRootPath, refp.pszRootPath.c_str(), 
-            strlen(refp.rootPath.c_str()) + 1);
+    if(this == &refp) return *this;
+    if(pszRootPath) 
+    {
+        free(pszRootPath);
+        pszRootPath = NULL;
+    }
+
+    pszRootPath = (char*) malloc(strlen(refp.pszRootPath) + 1);
+    memcpy(pszRootPath, refp.pszRootPath, strlen(refp.pszRootPath) + 1);
+
     return *this;
 }
 
@@ -60,7 +66,7 @@ const FileKV& operator= (const FileKV& rep)
 /*                              getName()                                */
 /* --------------------------------------------------------------------- */
 
-const char* FileKV::getName()
+const char* FileKV::getName() const
 {
     return "file";
 }
@@ -76,8 +82,8 @@ int FileKV::open(CPLString openInfo)
         free(pszRootPath);
         pszRootPath = NULL;
     }
-    pszRootPath = (char*) malloc(strlen(rootPath.c_str()) + 1);
-    strcpy(pszRootPath, rootPaht.cStr());
+    pszRootPath = (char*) malloc(strlen(openInfo.c_str()) + 1);
+    strcpy(pszRootPath, openInfo.c_str());
 
     return 0;
 }
@@ -86,7 +92,7 @@ int FileKV::open(CPLString openInfo)
 /*                              getValue()                               */
 /* --------------------------------------------------------------------- */
 
-unsigned char* FileKV::getValue(CPLString strKey)
+unsigned char* FileKV::getValue(CPLString strKey) const
 {
     char* pszAbsolutePath = (char*) malloc( strlen(pszRootPath) + 1 + 
             strlen(strKey.c_str()) + 1);
@@ -94,5 +100,7 @@ unsigned char* FileKV::getValue(CPLString strKey)
     strcat(pszAbsolutePath, strKey.c_str());
 
     FILE* fp = fopen( pszAbsolutePath, "rwb" );
+    /* TODO */
+    return NULL;
 
 }

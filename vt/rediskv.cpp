@@ -21,7 +21,7 @@ RedisKV::RedisKV(CPLString connInfo)
 /*                             ~RedisKV()                                */
 /* --------------------------------------------------------------------- */
 
-RedisKV::RedisKV()
+RedisKV::~RedisKV()
 {
 }
 
@@ -29,7 +29,7 @@ RedisKV::RedisKV()
 /*                              getName()                                */
 /* --------------------------------------------------------------------- */
 
-const char* RedisKV::getName()
+const char* RedisKV::getName() const
 {
     return "redis";
 }
@@ -47,7 +47,7 @@ int RedisKV::open(CPLString openInfo)
 /*                              getValue()                               */
 /* --------------------------------------------------------------------- */
 
-unsigned char* RedisKV::getValue(CPLString strKey)
+unsigned char* RedisKV::getValue(CPLString strKey) const
 {
     return NULL;
 }
